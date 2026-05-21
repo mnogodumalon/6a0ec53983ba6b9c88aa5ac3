@@ -1,0 +1,1 @@
+- Schlagloch melden (schlagloch_melden): standort[geo], schweregrad[lookup/radio], beschreibung[string/textarea], foto[file], ort[string/text], meldedatum[date/datetimeminute], strasse[string/text], hausnummer[string/text], postleitzahl[string/text]

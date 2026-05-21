@@ -1,0 +1,10 @@
+{
+  "entities": {
+    "Schlagloch melden": {
+      "placeholders_set": 7,
+      "defaults_keys": ["meldedatum", "schweregrad"],
+      "computed_keys": [],
+      "reason": "Reine Standorterfassung mit Kategorisierung. Keine Numerik, keine Applookups mit Preisen, keine berechnbaren Beziehungen zwischen Feldern. Meldedatum wird auf 'today mit withTime' vorbelegt, Schweregrad auf 'gering' als Standardfall."
+    }
+  }
+}
