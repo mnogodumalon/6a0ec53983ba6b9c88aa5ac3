@@ -16,6 +16,7 @@ import {
   IconMapPin, IconCalendar, IconTrash, IconPencil,
   IconAlertTriangle, IconCircleCheck, IconFlag, IconPhoto,
 } from '@tabler/icons-react';
+import { tx } from '@/i18n';
 
 const APPGROUP_ID = '6a0ec53983ba6b9c88aa5ac3';
 const REPAIR_ENDPOINT = '/claude/build/repair';
@@ -77,39 +78,39 @@ export default function DashboardOverview() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Schlagloch-Übersicht</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{stats.total} Meldungen insgesamt</p>
+          <h1 className="text-2xl font-bold text-foreground">{tx('Schlagloch-Übersicht')}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{stats.total} {tx('Meldungen insgesamt')}</p>
         </div>
         <Button onClick={() => { setEditRecord(null); setDialogOpen(true); }} className="shrink-0">
           <IconPlus size={16} className="mr-1.5 shrink-0" />
-          Schlagloch melden
+          {tx('Schlagloch melden')}
         </Button>
       </div>
 
       {/* KPI Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
-          title="Gesamt"
+          title={tx('Gesamt')}
           value={String(stats.total)}
-          description="Alle Meldungen"
+          description={tx('Alle Meldungen')}
           icon={<IconMapPin size={18} className="text-muted-foreground" />}
         />
         <StatCard
-          title="Gefährlich"
+          title={tx('Gefährlich')}
           value={String(stats.hoch)}
-          description="Schweregrad hoch"
+          description={tx('Schweregrad hoch')}
           icon={<IconAlertTriangle size={18} className="text-red-500" />}
         />
         <StatCard
-          title="Mittel"
+          title={tx('Mittel')}
           value={String(stats.mittel)}
-          description="Schweregrad mittel"
+          description={tx('Schweregrad mittel')}
           icon={<IconFlag size={18} className="text-orange-500" />}
         />
         <StatCard
-          title="Gering"
+          title={tx('Gering')}
           value={String(stats.gering)}
-          description="Kleine Unebenheiten"
+          description={tx('Kleine Unebenheiten')}
           icon={<IconCircleCheck size={18} className="text-yellow-500" />}
         />
       </div>
@@ -117,10 +118,10 @@ export default function DashboardOverview() {
       {/* Filter Tabs */}
       <div className="flex flex-wrap gap-2">
         {[
-          { key: 'alle', label: 'Alle' },
-          { key: 'hoch', label: 'Hoch' },
-          { key: 'mittel', label: 'Mittel' },
-          { key: 'gering', label: 'Gering' },
+          { key: 'alle', label: tx('Alle') },
+          { key: 'hoch', label: tx('Hoch') },
+          { key: 'mittel', label: tx('Mittel') },
+          { key: 'gering', label: tx('Gering') },
         ].map(f => (
           <button
             key={f.key}
@@ -148,10 +149,10 @@ export default function DashboardOverview() {
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 border border-dashed border-border rounded-2xl">
               <IconMapPin size={48} className="text-muted-foreground" stroke={1.5} />
-              <p className="text-muted-foreground text-sm">Keine Meldungen vorhanden</p>
+              <p className="text-muted-foreground text-sm">{tx('Keine Meldungen vorhanden')}</p>
               <Button size="sm" variant="outline" onClick={() => { setEditRecord(null); setDialogOpen(true); }}>
                 <IconPlus size={14} className="mr-1" />
-                Jetzt melden
+                {tx('Jetzt melden')}
               </Button>
             </div>
           ) : (
@@ -181,7 +182,7 @@ export default function DashboardOverview() {
                           <span className="font-semibold text-sm text-foreground truncate">
                             {record.fields.strasse
                               ? `${record.fields.strasse}${record.fields.hausnummer ? ' ' + record.fields.hausnummer : ''}`
-                              : 'Standort nicht angegeben'}
+                              : tx('Standort nicht angegeben')}
                           </span>
                           <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${schwerBadgeClass(key)}`}>
                             {schwerIcon(key)}
@@ -206,7 +207,7 @@ export default function DashboardOverview() {
                           {record.fields.foto && (
                             <span className="flex items-center gap-1 text-primary/70">
                               <IconPhoto size={12} className="shrink-0" />
-                              Foto
+                              {tx('Foto')}
                             </span>
                           )}
                         </div>
@@ -223,14 +224,14 @@ export default function DashboardOverview() {
                         <button
                           onClick={e => { e.stopPropagation(); setEditRecord(record); setDialogOpen(true); }}
                           className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                          title="Bearbeiten"
+                          title={tx('Bearbeiten')}
                         >
                           <IconPencil size={14} />
                         </button>
                         <button
                           onClick={e => { e.stopPropagation(); setDeleteTarget(record); }}
                           className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                          title="Löschen"
+                          title={tx('Löschen')}
                         >
                           <IconTrash size={14} />
                         </button>
@@ -259,7 +260,7 @@ export default function DashboardOverview() {
                   <h2 className="font-bold text-base text-foreground truncate">
                     {selected.fields.strasse
                       ? `${selected.fields.strasse}${selected.fields.hausnummer ? ' ' + selected.fields.hausnummer : ''}`
-                      : 'Standort nicht angegeben'}
+                      : tx('Standort nicht angegeben')}
                   </h2>
                   <p className="text-sm text-muted-foreground mt-0.5">
                     {selected.fields.ort ?? ''}{selected.fields.postleitzahl ? ` · ${selected.fields.postleitzahl}` : ''}
@@ -268,7 +269,7 @@ export default function DashboardOverview() {
                 <button
                   onClick={() => setSelectedId(null)}
                   className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors text-lg leading-none"
-                  title="Schließen"
+                  title={tx('Schließen')}
                 >
                   ×
                 </button>
@@ -288,7 +289,7 @@ export default function DashboardOverview() {
                   <div className="rounded-xl overflow-hidden border border-border">
                     <img
                       src={selected.fields.foto}
-                      alt="Foto des Schlaglochs"
+                      alt={tx('Foto des Schlaglochs')}
                       className="w-full h-48 object-cover"
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
@@ -298,7 +299,7 @@ export default function DashboardOverview() {
                 {/* Description */}
                 {selected.fields.beschreibung && (
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Beschreibung</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">{tx('Beschreibung')}</p>
                     <p className="text-sm text-foreground">{selected.fields.beschreibung}</p>
                   </div>
                 )}
@@ -308,7 +309,7 @@ export default function DashboardOverview() {
                   {selected.fields.meldedatum && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <IconCalendar size={14} className="shrink-0" />
-                      <span>Gemeldet am {formatDate(selected.fields.meldedatum)}</span>
+                      <span>{tx('Gemeldet am')} {formatDate(selected.fields.meldedatum)}</span>
                     </div>
                   )}
                   {selected.fields.standort && (
@@ -332,7 +333,7 @@ export default function DashboardOverview() {
                     onClick={() => { setEditRecord(selected); setDialogOpen(true); }}
                   >
                     <IconPencil size={14} className="mr-1.5 shrink-0" />
-                    Bearbeiten
+                    {tx('Bearbeiten')}
                   </Button>
                   <Button
                     size="sm"
@@ -362,14 +363,15 @@ export default function DashboardOverview() {
           fetchAll();
         }}
         defaultValues={editRecord?.fields}
+        recordId={editRecord?.record_id}
         enablePhotoScan={AI_PHOTO_SCAN['SchlaglochMelden']}
         enablePhotoLocation={AI_PHOTO_LOCATION['SchlaglochMelden']}
       />
 
       <ConfirmDialog
         open={!!deleteTarget}
-        title="Meldung löschen"
-        description={`Soll die Schlagloch-Meldung "${deleteTarget?.fields.strasse ?? 'dieser Eintrag'}" wirklich gelöscht werden?`}
+        title={tx('Meldung löschen')}
+        description={tx`Soll die Schlagloch-Meldung "${deleteTarget?.fields.strasse ?? tx('dieser Eintrag')}" wirklich gelöscht werden?`}
         onConfirm={handleDelete}
         onClose={() => setDeleteTarget(null)}
       />
@@ -403,7 +405,7 @@ function DashboardError({ error, onRetry }: { error: Error; onRetry: () => void 
 
   const handleRepair = async () => {
     setRepairing(true);
-    setRepairStatus('Reparatur wird gestartet...');
+    setRepairStatus(tx('Reparatur wird gestartet...'));
     setRepairFailed(false);
 
     const errorContext = JSON.stringify({
@@ -448,7 +450,7 @@ function DashboardError({ error, onRetry }: { error: Error; onRetry: () => void 
             setRepairDone(true);
             setRepairing(false);
           }
-          if (content.startsWith('[ERROR]') && !content.includes('Dashboard-Links')) {
+          if (content.startsWith('[ERROR]') && !content.includes('Dashboard-Links')) { /* i18n-exempt */
             setRepairFailed(true);
           }
         }
@@ -466,11 +468,11 @@ function DashboardError({ error, onRetry }: { error: Error; onRetry: () => void 
           <IconCheck size={22} className="text-green-500" />
         </div>
         <div className="text-center">
-          <h3 className="font-semibold text-foreground mb-1">Dashboard repariert</h3>
-          <p className="text-sm text-muted-foreground max-w-xs">Das Problem wurde behoben. Bitte laden Sie die Seite neu.</p>
+          <h3 className="font-semibold text-foreground mb-1">{tx('Dashboard repariert')}</h3>
+          <p className="text-sm text-muted-foreground max-w-xs">{tx('Das Problem wurde behoben. Bitte laden Sie die Seite neu.')}</p>
         </div>
         <Button size="sm" onClick={() => window.location.reload()}>
-          <IconRefresh size={14} className="mr-1" />Neu laden
+          <IconRefresh size={14} className="mr-1" />{tx('Neu laden')}
         </Button>
       </div>
     );
@@ -482,21 +484,21 @@ function DashboardError({ error, onRetry }: { error: Error; onRetry: () => void 
         <IconAlertCircle size={22} className="text-destructive" />
       </div>
       <div className="text-center">
-        <h3 className="font-semibold text-foreground mb-1">Fehler beim Laden</h3>
+        <h3 className="font-semibold text-foreground mb-1">{tx('Fehler beim Laden')}</h3>
         <p className="text-sm text-muted-foreground max-w-xs">
           {repairing ? repairStatus : error.message}
         </p>
       </div>
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={onRetry} disabled={repairing}>Erneut versuchen</Button>
+        <Button variant="outline" size="sm" onClick={onRetry} disabled={repairing}>{tx('Erneut versuchen')}</Button>
         <Button size="sm" onClick={handleRepair} disabled={repairing}>
           {repairing
             ? <span className="inline-block w-3.5 h-3.5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin mr-1" />
             : <IconTool size={14} className="mr-1" />}
-          {repairing ? 'Reparatur läuft...' : 'Dashboard reparieren'}
+          {repairing ? tx('Reparatur läuft...') : tx('Dashboard reparieren')}
         </Button>
       </div>
-      {repairFailed && <p className="text-sm text-destructive">Automatische Reparatur fehlgeschlagen. Bitte kontaktieren Sie den Support.</p>}
+      {repairFailed && <p className="text-sm text-destructive">{tx('Automatische Reparatur fehlgeschlagen. Bitte kontaktieren Sie den Support.')}</p>}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { DatePicker } from '@/components/DatePicker';
 import { IconChevronDown, IconCrosshair, IconLoader2 } from '@tabler/icons-react';
 import { GeoMapPicker } from '@/components/GeoMapPicker';
 import { lookupKey } from '@/lib/formatters';
+import { tx } from '@/i18n';
 
 // Empty PROXY_BASE → relative URLs (dashboard and form-proxy share the domain).
 const PROXY_BASE = '';
@@ -25,7 +26,7 @@ async function submitPublicForm(fields: Record<string, unknown>, captchaToken: s
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(err || 'Submission failed');
+    throw new Error(err || tx('Submission failed'));
   }
   return res.json();
 }
@@ -108,7 +109,7 @@ export default function PublicFormSchlaglochMelden() {
     e.preventDefault();
     const token = readCaptchaToken();
     if (!token) {
-      setError('Bitte warte auf die Spam-Prüfung und versuche es erneut.');
+      setError(tx('Bitte warte auf die Spam-Prüfung und versuche es erneut.'));
       return;
     }
     setSubmitting(true);
@@ -117,7 +118,7 @@ export default function PublicFormSchlaglochMelden() {
       await submitPublicForm(cleanFields(fields), token);
       setSubmitted(true);
     } catch (err: any) {
-      setError(err.message || 'Etwas ist schiefgelaufen. Bitte versuche es erneut.');
+      setError(err.message || tx('Etwas ist schiefgelaufen. Bitte versuche es erneut.'));
     } finally {
       setSubmitting(false);
     }
@@ -132,10 +133,10 @@ export default function PublicFormSchlaglochMelden() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold">Vielen Dank!</h2>
-          <p className="text-muted-foreground">Deine Eingabe wurde erfolgreich übermittelt.</p>
+          <h2 className="text-xl font-bold">{tx('Vielen Dank!')}</h2>
+          <p className="text-muted-foreground">{tx('Deine Eingabe wurde erfolgreich übermittelt.')}</p>
           <Button variant="outline" className="mt-4" onClick={() => { setSubmitted(false); setFields({}); }}>
-            Weitere Eingabe
+            {tx('Weitere Eingabe')}
           </Button>
         </div>
       </div>
@@ -146,19 +147,19 @@ export default function PublicFormSchlaglochMelden() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-foreground">Schlagloch melden — Formular</h1>
+          <h1 className="text-2xl font-bold text-foreground">{tx('Schlagloch melden — Formular')}</h1>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-xl border border-border p-6 shadow-md">
           <div className="space-y-2">
-            <Label htmlFor="standort">Genaue Position des Schlaglochs</Label>
+            <Label htmlFor="standort">{tx('Genaue Position des Schlaglochs')}</Label>
             <div className="space-y-3">
               <Button type="button" variant="outline" className="w-full" disabled={locating} onClick={() => geoLocate("standort")}>
                 {locating ? <IconLoader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <IconCrosshair className="h-4 w-4 mr-1.5" />}
-                Aktuellen Standort verwenden
+                {tx('Aktuellen Standort verwenden')}
               </Button>
               {geoFromPhoto && fields.standort && (
-                <p className="text-xs text-primary italic">Standort aus Foto übernommen</p>
+                <p className="text-xs text-primary italic">{tx('Standort aus Foto übernommen')}</p>
               )}
               {fields.standort?.info && (
                 <p className="text-sm text-muted-foreground break-words whitespace-normal">
@@ -173,13 +174,13 @@ export default function PublicFormSchlaglochMelden() {
                 />
               )}
               <button type="button" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors" onClick={() => setShowCoords(v => !v)}>
-                {showCoords ? 'Koordinaten verbergen' : 'Koordinaten anzeigen'}
+                {showCoords ? tx('Koordinaten verbergen') : tx('Koordinaten anzeigen')}
                 <IconChevronDown className={`h-3 w-3 transition-transform ${showCoords ? "rotate-180" : ""}`} />
               </button>
               {showCoords && (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Breitengrad</Label>
+                    <Label className="text-xs text-muted-foreground">{tx('Breitengrad')}</Label>
                     <Input type="number" step="any"
                       value={fields.standort?.lat ?? ''}
                       onChange={e => {
@@ -189,7 +190,7 @@ export default function PublicFormSchlaglochMelden() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Längengrad</Label>
+                    <Label className="text-xs text-muted-foreground">{tx('Längengrad')}</Label>
                     <Input type="number" step="any"
                       value={fields.standort?.long ?? ''}
                       onChange={e => {
@@ -203,7 +204,7 @@ export default function PublicFormSchlaglochMelden() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="schweregrad">Schweregrad</Label>
+            <Label htmlFor="schweregrad">{tx('Schweregrad')}</Label>
             <div role="radiogroup" className="flex flex-wrap gap-1.5">
               <button
                 type="button"
@@ -216,7 +217,7 @@ export default function PublicFormSchlaglochMelden() {
                     : 'bg-background text-foreground border-input hover:bg-accent'
                 }`}
               >
-                Gering (kleine Unebenheit)
+                {tx('Gering (kleine Unebenheit)')}
               </button>
               <button
                 type="button"
@@ -229,7 +230,7 @@ export default function PublicFormSchlaglochMelden() {
                     : 'bg-background text-foreground border-input hover:bg-accent'
                 }`}
               >
-                Mittel (deutliche Vertiefung)
+                {tx('Mittel (deutliche Vertiefung)')}
               </button>
               <button
                 type="button"
@@ -242,12 +243,12 @@ export default function PublicFormSchlaglochMelden() {
                     : 'bg-background text-foreground border-input hover:bg-accent'
                 }`}
               >
-                Hoch (tiefes Schlagloch, gefährlich)
+                {tx('Hoch (tiefes Schlagloch, gefährlich)')}
               </button>
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="beschreibung">Zusätzliche Beschreibung</Label>
+            <Label htmlFor="beschreibung">{tx('Zusätzliche Beschreibung')}</Label>
             <Textarea
               id="beschreibung"
               placeholder=""
@@ -257,7 +258,7 @@ export default function PublicFormSchlaglochMelden() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="ort">Ort</Label>
+            <Label htmlFor="ort">{tx('Ort')}</Label>
             <Input
               id="ort"
               placeholder=""
@@ -266,7 +267,7 @@ export default function PublicFormSchlaglochMelden() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="meldedatum">Meldedatum und -uhrzeit</Label>
+            <Label htmlFor="meldedatum">{tx('Meldedatum und -uhrzeit')}</Label>
             <DatePicker
               id="meldedatum"
               placeholder=""
@@ -276,7 +277,7 @@ export default function PublicFormSchlaglochMelden() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="strasse">Straße</Label>
+            <Label htmlFor="strasse">{tx('Straße')}</Label>
             <Input
               id="strasse"
               placeholder=""
@@ -285,7 +286,7 @@ export default function PublicFormSchlaglochMelden() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="hausnummer">Hausnummer / Abschnitt</Label>
+            <Label htmlFor="hausnummer">{tx('Hausnummer / Abschnitt')}</Label>
             <Input
               id="hausnummer"
               placeholder=""
@@ -294,7 +295,7 @@ export default function PublicFormSchlaglochMelden() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="postleitzahl">Postleitzahl</Label>
+            <Label htmlFor="postleitzahl">{tx('Postleitzahl')}</Label>
             <Input
               id="postleitzahl"
               placeholder=""
@@ -317,12 +318,12 @@ export default function PublicFormSchlaglochMelden() {
           )}
 
           <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? 'Wird gesendet...' : 'Absenden'}
+            {submitting ? tx('Wird gesendet...') : tx('Absenden')}
           </Button>
         </form>
 
         <p className="text-xs text-muted-foreground text-center mt-4">
-          Powered by Klar
+          {tx('Powered by Klar')}
         </p>
       </div>
     </div>

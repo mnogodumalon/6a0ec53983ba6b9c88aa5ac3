@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { IconArrowsDownUp, IconFlask, IconPlus } from '@tabler/icons-react';
 import { getHeaderProfile, getAppGroups } from '@/services/livingAppsService';
 import type { HeaderProfile, AppGroupInfo } from '@/services/livingAppsService';
-import { useActions } from '@/context/ActionsContext';
 
 function AppsIcon({ size = 20, className = '' }: { size?: number; className?: string }) {
   return (
@@ -46,7 +45,7 @@ const SORT_LABELS: Record<SortMode, string> = {
 };
 
 export function TopBar() {
-  const { devMode, setDevMode } = useActions();
+  const [devMode, setDevMode] = useState(false);
   const [profile, setProfile] = useState<HeaderProfile | null>(null);
   const [appGroups, setAppGroups] = useState<AppGroupInfo[]>([]);
   const [appsOpen, setAppsOpen] = useState(false);

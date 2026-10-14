@@ -1,9 +1,12 @@
 // AUTOMATICALLY GENERATED SERVICE
 import { APP_IDS, LOOKUP_OPTIONS, FIELD_TYPES } from '@/types/app';
+import { ensureUploadableImage } from '@/lib/ai';
+import { REST_URL } from '@/lib/origin';
 import type { SchlaglochMelden, CreateSchlaglochMelden } from '@/types/app';
 
-// Base Configuration
-const API_BASE_URL = 'https://my.living-apps.de/rest';
+// Base Configuration — the host is a RUNTIME fact (lib/origin.ts):
+// a bundle copied to another LA instance must talk to THAT instance.
+const API_BASE_URL = REST_URL;
 
 // --- HELPER FUNCTIONS ---
 export function extractRecordId(url: unknown): string | null {
@@ -29,7 +32,7 @@ export function extractRecordIds(urls: unknown): string[] {
 }
 
 export function createRecordUrl(appId: string, recordId: string): string {
-  return `https://my.living-apps.de/rest/apps/${appId}/records/${recordId}`;
+  return `${API_BASE_URL}/apps/${appId}/records/${recordId}`;
 }
 
 export class LivingAppsApiError extends Error {
@@ -72,6 +75,52 @@ async function parseErrorBody(response: Response): Promise<{ message: string; ra
 export interface CallApiOptions {
   /** Skip errorbus dispatch for expected failures (e.g. optional-param 404s). */
   silent?: boolean;
+  /** Abort the request (a keystroke replacing the previous search). */
+  signal?: AbortSignal;
+}
+
+/** Query options of GET /apps/{id}/records — filter/orderby are vSQL (see the journey layer's
+ *  buildSearchFilter; never concatenate user input into them yourself). */
+export interface RecordQuery {
+  filter?: string;
+  orderby?: string[];
+  limit?: number;
+  offset?: number;
+  /** Field projection (`field=` repeated). The record's `fields` then holds ONLY these keys. */
+  fields?: string[];
+  signal?: AbortSignal;
+}
+// URLSearchParams encodes spaces as `+` — the API accepts it (verified live
+// 2026-09-02: orderby=r.v_nachname+asc → 200, sorted; filter with + → 200).
+export function recordQueryString(q: RecordQuery): string {
+  const p = new URLSearchParams();
+  if (q.filter) p.set('filter', q.filter);
+  for (const o of q.orderby ?? []) p.append('orderby', o);
+  for (const f of q.fields ?? []) p.append('field', f);
+  if (q.limit !== undefined) p.set('limit', String(Math.max(1, Math.floor(q.limit))));
+  if (q.offset !== undefined) p.set('offset', String(Math.max(0, Math.floor(q.offset))));
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+/** `[[n]]` from aggregate_records?value=count() -> n; `[]` -> 0; anything else -> 0 (never NaN). */
+export function parseAggregateCount(data: unknown): number {
+  if (!Array.isArray(data)) return 0;
+  if (data.length === 0) return 0;
+  const first = data[0];
+  const n = Array.isArray(first) ? Number(first[0]) : Number(first);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** What the create and update helpers resolve to. Same `record_id`
+ *  the read helpers expose, so the whole family behaves alike — the
+ *  raw REST answer only
+ *  carries `id`, and code that guessed (e.g. Object.keys(res)[0]) built
+ *  `/records/id` and got a 400 on the next write. */
+export interface MutationResult {
+  record_id: string;
+  id: string;
+  fields: Record<string, any>;
+  [key: string]: any;
 }
 
 async function callApi(method: string, endpoint: string, data?: any, options?: CallApiOptions) {
@@ -82,9 +131,13 @@ async function callApi(method: string, endpoint: string, data?: any, options?: C
       method,
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',  // Nutze Session Cookies für Auth
+      signal: options?.signal,
       body: data ? JSON.stringify(data) : undefined
     });
   } catch (netErr) {
+    // A search the user typed past is cancelled, not broken — it must not
+    // raise an error toast on its way out.
+    if (netErr instanceof Error && netErr.name === 'AbortError') throw netErr;
     const message = netErr instanceof Error ? netErr.message : String(netErr);
     if (!silent) {
       window.dispatchEvent(new CustomEvent('errorbus:emit', { detail: {
@@ -94,10 +147,14 @@ async function callApi(method: string, endpoint: string, data?: any, options?: C
     throw netErr;
   }
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) window.dispatchEvent(new Event('auth-error'));
+    // 401 = not signed in → the login screen, never the errorbus (repair can't fix auth).
+    // 403 = signed in, but this list is not theirs to read or write: a notice,
+    // the page stays (05.10.2026 — it used to say „not logged in“ and blank everything).
+    const isAuthError = response.status === 401;
+    if (isAuthError) window.dispatchEvent(new Event('auth-error'));
     const { message, raw } = await parseErrorBody(response);
     const err = new LivingAppsApiError(message, response.status, raw);
-    if (!silent) {
+    if (!silent && !isAuthError) {
       window.dispatchEvent(new CustomEvent('errorbus:emit', { detail: {
         source: 'api',
         status: err.status,
@@ -118,6 +175,10 @@ async function callApi(method: string, endpoint: string, data?: any, options?: C
 
 /** Upload a file to LivingApps. Returns the file URL for use in record fields. */
 export async function uploadFile(file: File | Blob, filename?: string): Promise<string> {
+  // HEIC/HEIF (iPhone photos) crash the server-side image decoder (500).
+  // Convert to JPEG in the browser BEFORE upload — every upload path routes
+  // through here, so this one guard covers form fields AND attachments.
+  if (file instanceof File) file = await ensureUploadableImage(file);
   const formData = new FormData();
   formData.append('file', file, filename ?? (file instanceof File ? file.name : 'upload'));
   const res = await fetch(`${API_BASE_URL}/files`, {
@@ -126,11 +187,35 @@ export async function uploadFile(file: File | Blob, filename?: string): Promise<
     body: formData,
   });
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) window.dispatchEvent(new Event('auth-error'));
+    if (res.status === 401) window.dispatchEvent(new Event('auth-error'));
+    else if (res.status === 403) window.dispatchEvent(new CustomEvent('errorbus:emit', { detail: {
+      source: 'api', status: 403, message: 'File upload failed: 403',
+    } }));
     throw new Error(`File upload failed: ${res.status}`);
   }
   const data = await res.json();
   return data.url;
+}
+
+// --- ATTACHMENT API ---
+// Record-attachments: file/note/url/json blobs attached to a single record.
+// `getAttachments` returns a dict keyed by attachment id; we flatten to an array.
+export async function getRecordAttachments(appId: string, recordId: string) {
+  const data = await callApi('GET', `/apps/${appId}/records/${recordId}/attachments`, undefined, { silent: true }).catch(() => ({}));
+  if (!data || typeof data !== 'object') return [] as import('@/types/app').Attachment[];
+  return Object.entries(data).map(([id, att]) => ({ id, ...(att as Record<string, unknown>) })) as import('@/types/app').Attachment[];
+}
+
+export async function createRecordAttachment(appId: string, recordId: string, input: import('@/types/app').AttachmentInput) {
+  return callApi('POST', `/apps/${appId}/records/${recordId}/attachments`, input) as Promise<import('@/types/app').Attachment>;
+}
+
+export async function updateRecordAttachment(appId: string, recordId: string, attachmentId: string, input: Partial<import('@/types/app').AttachmentInput>) {
+  return callApi('PATCH', `/apps/${appId}/records/${recordId}/attachments/${attachmentId}`, input) as Promise<import('@/types/app').Attachment>;
+}
+
+export async function deleteRecordAttachment(appId: string, recordId: string, attachmentId: string) {
+  return callApi('DELETE', `/apps/${appId}/records/${recordId}/attachments/${attachmentId}`);
 }
 
 function enrichLookupFields<T extends { fields: Record<string, unknown> }>(
@@ -157,6 +242,69 @@ function enrichLookupFields<T extends { fields: Record<string, unknown> }>(
     }
     return { ...r, fields } as T;
   });
+}
+
+/** A textarea that HOLDS A LIST but was typed on one line.
+ *
+ *  Rendering such a field as tiles/bullets is the natural thing to do, and
+ *  the natural way to write it is `value.split('\n')` — one item per line
+ *  is the convention every form implies. Owners type differently though:
+ *  a live landing page collapsed five services into ONE tile because the
+ *  record held 'Tagesbetreuung, Übernachtung, …' without a single line
+ *  break. Normalizing HERE makes that natural split correct whatever was
+ *  typed, instead of asking every page to re-derive the heuristic.
+ *
+ *  Deliberately conservative — prose must survive untouched:
+ *    · already has line breaks  → left alone (the author's own structure)
+ *    · ; • · |                  → unambiguous separators, 2 parts suffice
+ *    · commas                   → only with 3+ parts that all read like
+ *                                 labels: short, at most four words, no
+ *                                 sentence punctuation. A prose clause like
+ *                                 "Katzen und Kleintiere aller Rassen" is
+ *                                 short enough but not wordy-short.
+ *  Anything else stays as it is, so a wrong guess degrades to today's
+ *  behaviour (one item), never to mangled prose. */
+const LIST_LABEL_MAX = 40;
+const LIST_LABEL_MAX_WORDS = 4;
+function listTextToLines(text: string): string {
+  if (!text || /\r?\n/.test(text)) return text;
+  const bulleted = text.split(/\s*[;•·|]\s*/).map(s => s.trim()).filter(Boolean);
+  if (bulleted.length >= 2) return bulleted.join('\n');
+  const parts = text.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean);
+  const looksLikeLabels = parts.length >= 3 && parts.every(p =>
+    p.length <= LIST_LABEL_MAX
+    && p.split(/\s+/).length <= LIST_LABEL_MAX_WORDS
+    && !/[.!?:]$/.test(p));
+  return looksLikeLabels ? parts.join('\n') : text;
+}
+
+function normalizeListTextareas<T extends { fields: Record<string, unknown> }>(
+  records: T[], entityKey: string
+): T[] {
+  const types = FIELD_TYPES[entityKey];
+  if (!types) return records;
+  const areas = Object.keys(types).filter(k => types[k] === 'string/textarea');
+  if (areas.length === 0) return records;
+  return records.map(r => {
+    let touched = false;
+    const fields = { ...r.fields };
+    for (const key of areas) {
+      const val = fields[key];
+      if (typeof val !== 'string') continue;
+      const next = listTextToLines(val);
+      if (next !== val) { fields[key] = next; touched = true; }
+    }
+    return touched ? ({ ...r, fields } as T) : r;
+  });
+}
+
+/** The one post-processing step every READ goes through: lookup objects
+ *  attached, list-ish textareas line-broken. Read helpers call this, not
+ *  the individual passes. */
+function hydrateRecords<T extends { fields: Record<string, unknown> }>(
+  records: T[], entityKey: string
+): T[] {
+  return normalizeListTextareas(enrichLookupFields(records, entityKey), entityKey);
 }
 
 /** Normalize fields for API writes: strip lookup objects to keys, fix date formats. */
@@ -258,7 +406,9 @@ export async function getAppGroups(): Promise<AppGroupInfo[]> {
         id: g.id,
         name: g.name,
         image: g.image ?? null,
-        createdat: g.createdat ?? '',
+        // API field is created_at (snake_case) — the old camelCase read
+        // left every group '', silently disabling the newest-first sort.
+        createdat: g.created_at ?? g.createdat ?? '',
         href: `/gateway/apps/${firstAppId}?template=list_page`,
         _firstAppId: firstAppId,
       };
@@ -289,20 +439,35 @@ export class LivingAppsService {
   static async getSchlaglochMelden(): Promise<SchlaglochMelden[]> {
     const data = await callApi('GET', `/apps/${APP_IDS.SCHLAGLOCH_MELDEN}/records`);
     const records = Object.entries(data).map(([id, rec]: [string, any]) => ({
-      record_id: id, ...rec
+      record_id: id, ...rec,
+      createdat: rec.created_at ?? '', updatedat: rec.updated_at ?? null,
     })) as SchlaglochMelden[];
-    return enrichLookupFields(records, 'schlagloch_melden');
+    return hydrateRecords(records, 'schlagloch_melden');
+  }
+  static async querySchlaglochMelden(q: RecordQuery = {}): Promise<SchlaglochMelden[]> {
+    const data = await callApi('GET', `/apps/${APP_IDS.SCHLAGLOCH_MELDEN}/records${recordQueryString(q)}`, undefined, { signal: q.signal });
+    const records = Object.entries(data).map(([id, rec]: [string, any]) => ({
+      record_id: id, ...rec,
+      createdat: rec.created_at ?? '', updatedat: rec.updated_at ?? null,
+    })) as SchlaglochMelden[];
+    return hydrateRecords(records, 'schlagloch_melden');
+  }
+  static async countSchlaglochMelden(filter?: string, signal?: AbortSignal): Promise<number> {
+    const data = await callApi('GET', `/apps/${APP_IDS.SCHLAGLOCH_MELDEN}/aggregate_records${recordQueryString({ filter })}${filter ? '&' : '?'}value=count()`, undefined, { signal, silent: true });
+    return parseAggregateCount(data);
   }
   static async getSchlaglochMeldenEntry(id: string): Promise<SchlaglochMelden | undefined> {
     const data = await callApi('GET', `/apps/${APP_IDS.SCHLAGLOCH_MELDEN}/records/${id}`);
-    const record = { record_id: data.id, ...data } as SchlaglochMelden;
-    return enrichLookupFields([record], 'schlagloch_melden')[0];
+    const record = { record_id: data.id, ...data, createdat: data.created_at ?? '', updatedat: data.updated_at ?? null } as SchlaglochMelden;
+    return hydrateRecords([record], 'schlagloch_melden')[0];
   }
-  static async createSchlaglochMeldenEntry(fields: CreateSchlaglochMelden) {
-    return callApi('POST', `/apps/${APP_IDS.SCHLAGLOCH_MELDEN}/records`, { fields: cleanFieldsForApi(fields as any, 'schlagloch_melden') });
+  static async createSchlaglochMeldenEntry(fields: CreateSchlaglochMelden): Promise<MutationResult> {
+    const data = await callApi('POST', `/apps/${APP_IDS.SCHLAGLOCH_MELDEN}/records`, { fields: cleanFieldsForApi(fields as any, 'schlagloch_melden') });
+    return { ...data, record_id: data.id };
   }
-  static async updateSchlaglochMeldenEntry(id: string, fields: Partial<CreateSchlaglochMelden>) {
-    return callApi('PATCH', `/apps/${APP_IDS.SCHLAGLOCH_MELDEN}/records/${id}`, { fields: cleanFieldsForApi(fields as any, 'schlagloch_melden') });
+  static async updateSchlaglochMeldenEntry(id: string, fields: Partial<CreateSchlaglochMelden>): Promise<MutationResult> {
+    const data = await callApi('PATCH', `/apps/${APP_IDS.SCHLAGLOCH_MELDEN}/records/${id}`, { fields: cleanFieldsForApi(fields as any, 'schlagloch_melden') });
+    return { ...data, record_id: data.id };
   }
   static async deleteSchlaglochMeldenEntry(id: string) {
     return callApi('DELETE', `/apps/${APP_IDS.SCHLAGLOCH_MELDEN}/records/${id}`);
